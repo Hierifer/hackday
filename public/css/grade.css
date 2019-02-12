@@ -148,7 +148,7 @@ input[type=range]:focus::-ms-fill-upper {
 
 #panel{
 	position: absolute;
-	top: 180px;
+	top: 215px;
 	left: 2%;
 	width: 96%;
     padding: 10px;

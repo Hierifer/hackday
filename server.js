@@ -1,177 +1,332 @@
 var express = require('express');
 const React = require('react');
 const ReactDOM = require('react-dom');
-var app = express();
+var cookieParser = require('cookie-parser');
 
+var app = express();
+var lp = require('./public/js/loginprocess');
+var mysql = require('mysql');
+
+app.use(cookieParser());
 app.use(express.static('public'));
 
-app.get('/', function (req, res) {
-   res.sendFile( __dirname + "/" + "index.html" );
-})
+app.get('/1234', function (req, res){
+	console.log("login");
+});
 
-app.get('/loginprocess', function (req, res) {
 
-  var lp = require('./public/js/loginprocess')
-  var role = "p";
-
-  if(req.query.role){
-    role = req.query.role;
-  }
-
-  var user = {
-    email:req.query.email,
-    role: role,
-    magiclink: lp.auto_generator_magiclink(),
-  };
-
-  if(lp.mysql_signin(user) != 0){
-    if(lp.email_generator(user) != 0){
-      res.write("email already sent");
-      res.end();
-    }else{
-      res.write("email generator failed");
-      res.end();
-    }
-  }else{
-      res.write("mysql failed in sigin");
-      res.end();    
-  }
-})
 
 app.get('/urlprocess', function (req, res) {
-  var lp = require('./public/js/loginprocess')
-  var key = req.query.key;
-  var email = "";
-  var mysql = require('mysql');
-  var connection = lp.mysql_login(mysql);
-  var callback = function(email) {
-      user = {
-        email: email,
-        key: key,
-      };
-      if(user.email == -1){
-        console.log("invalid magiclink");
-      } else {
-        res.cookie(user.email);
-        console.log(user.email+"successful");
-        res.redirect('http://127.0.0.1:8081/home');
-      }
-  }
+	var magiclink = req.query.magiclink;
+	var role = req.query.role;
+	var email = "";
 
-  connection.query('SELECT * from users where magiclink = \''+key+'\';', function (error, rows, fields) {
-    if (error) console.log(error);
+	var connection = lp.mysql_login(mysql);
 
-    if (rows.length == 1){
-      connection.end();
-      email = rows[0].email;
-      callback(email);
-    } else {
-      connection.end();
-      console.log("invalid key");
-      res.write("invalid key");
-      res.end();
-      email = -1;
-    }
-  });
-})
+	var callback = function(email) {
+		if(email == -1){
+			console.log("invalid magiclink");
+		} else {
+			res.cookie('email',email,{maxAge:800000, httpOnly:true});
+			console.log(email + "successfully login");
+			res.redirect('/home.html?' + email);
+		}
+	}
 
-app.get('/grade', function(req, res){
-  res.sendFile( __dirname + "/" + "grade.html" );
-})
-
-app.get('/home', function(req, res){
-  res.sendFile( __dirname + "/" + "home.html" );
-})
-
-app.get('/hackathon', function(req, res){
-  res.sendFile( __dirname + "/" + "hackathon.html" );
-})
-
-app.get('/winner', function(req, res) {
-  res.sendFile( __dirname + "/" + "winner.html" );
-})
-
-app.get('/admin', function(req, res) {
-  res.sendFile( __dirname + "/" + "admin.html" );
-})
-
-app.get('/register', function (req, res, next) {
-	res.sendFile( __dirname + "/" + "register.html" );
-})
-
-app.get('/home_table', function (req, res, next) {
-
-	var email = req.query.email;
-	var mysql      = require('mysql');
-  var connection = mysql_login(mysql);
-  
-  connection.query('SELECT * from users where email = \''+email+'\';', function (error, rows, fields) {
-    if (error){
-    	console.log('commentline error' + err.stack); 
-    	return 0;
-    }
-
-    if (rows.length == 1){
-    	res.write("<table>");
-    	for(var i = 0; i < rows.length; i++){
-    		res.write("<tr><td><b>" + rows[i].email + "</b></td>");
-  		res.write("<td>" + rows[i].role + "</td></tr>");
-    	}
-    	res.write("</table>")
-  	res.end();
-    }
-    connection.end();
-  });
-
-})
-app.get('/user_table', function (req, res, next) {
-
-  var email = req.query.email;
-
-
-  var mysql      = require('mysql');
-    var connection = mysql.createConnection({
-        host     : '138.68.46.165',
-        user     : 'usf',
-        password : 'usfca',
-        database : 'hackday'
-    });
-
-    connection.connect(function(err) {
-      if (err) {
-        console.error('error connecting: ' + err.stack);
-        return 0;
+	if(role == "p"){
+	    connection.query('SELECT * from participant where magiclink = \''+ magiclink +'\';', function (error, rows, fields) {
+	    if (error){
+          console.log(error);
+          callback(0);
         }
-    })
 
-    console.log(email);
-
-    connection.query('SELECT * from users', function (error, rows, fields) {
-      if (error){
-        console.log('commentline error' + err.stack); 
-        return 0;
-      }
-
-      if (rows.length == 1){
-        res.write("<table>");
-        res.write("<tr><th>Email</th><th>MagicLink</th><th>Role</th><th>Project Host</th><th>Project Memo</th></tr>");
-        for(var i = 0; i < rows.length; i++){
-          res.write("<tr><td>" + rows[i].email + "</td>");
-          res.write("<td>" + rows[i].magiclink + "</td>");
-          res.write("<td>" + rows[i].role + "</td>");
-          res.write("<td>" + rows[i].project_host + "</td>");
-          res.write("<td>" + rows[i].project_mem + "</td></tr>");
+	    if (rows.length == 1){
+	      connection.end();
+	      email = rows[0].email;
+	      callback(email);
+	    } else {
+	      connection.end();
+	      res.redirect('/message.html?err='+ 'invalid magiclink');
+	    }
+	    });
+	} else {
+	    connection.query('SELECT * from judge where magiclink = \''+ magiclink +'\';', function (error, rows, fields) {
+	    if (error){
+          console.log(error);
+          callback(0);
         }
-        res.write("</table>")
-      res.end();
-      }
-      connection.end();
-    });
+
+	    if (rows.length == 1){
+	      connection.end();
+	      email = rows[0].email;
+	      callback(email);
+	    } else {
+	      connection.end();
+	     res.redirect('/message.html?err='+ 'invalid magiclink');
+	    }
+	  });
+	}
+});
+
+app.get('/post_gradelist', function (req, res){
+	console.log(req.query.email);
+	if(req.query.email){
+		console.log(req.query.email);
+		res.send(JSON.stringify(1));
+		return;
+	}else{
+		console.log("invalid");
+		res.send(JSON.stringify(0));
+		return;
+	}
+});
+
+app.get('/setcookie', function (req, res){
+	res.cookie('email','hierifer@hotmail.com',{maxAge:800000, httpOnly:true});
+	res.redirect('/grade.html?email=hierifer@hotmail.com');
+});
+
+app.get('/getcookie', function (req, res){
+	res.send(req.cookies.email);
+	res.end();
+});
+
+app.get('/logprocess', function (req, res){
+	var role = "p";
+
+	if(req.query.role){
+		role = req.query.role;
+	}
+
+	if(!req.query.email){
+		console.log("shdiuagfhboewuhgbfoiwehnbogihnbwohegnegpiew");
+		res.redirect("/index.html?err=bad_login");
+		return 0;
+	}
+	console.log("already in");
+	var user = {
+		email : req.query.email,
+		magiclink : lp.auto_generator_magiclink(),
+		role : role,
+	};
+
+	var callback = function(result) {
+	    if(result == 1){
+	      if(lp.email_generator(user) == 0){
+	        console.log('failed');
+	        res.redirect('/message.html?err='+ 'emailsender_fail');
+	        return;
+	      }else{
+	        console.log('send');
+	        res.redirect('/message.html?message='+ 'Email Already Sent');
+	        return;
+	      }
+	    }else if(result == 0){
+	      console.log('failed');  
+	      res.redirect('/message.html?err='+ 'mysql_fail');  
+	      return;  
+	    }else if(result == -1){
+	      console.log('failed');
+	      res.redirect('/index.html?err='+ 'judge_Need_Permission_From_Your_Admin');
+	      return;
+	    }
+	}
+
+	//Login to DB
+	var connection = lp.mysql_login(mysql);
+
+	if(user.role == "p"){
+      connection.query('SELECT * from participant where email = \''+user.email+'\';', function (error, rows, fields) {
+        if(error){
+          console.log(error);
+          callback(0);
+        }
+
+        if (rows.length != 0){
+          connection.query('UPDATE participant SET magiclink= \''+user.magiclink+'\' WHERE email=\''+user.email+'\';', function (error, results, fields) {
+          if(error){
+            console.log(error);
+            callback(0);
+          }
+          console.log(user.email + ' Login');
+          connection.end();
+          callback(1);
+          });
+        } 
+        else {
+          connection.query('INSERT INTO participant (email,magiclink) values (\''+user.email+'\', \''+user.magiclink+'\');', function (error, results, fields) {
+          if(error){
+            console.log(error);
+            callback(0);
+          }
+          console.log(user.email + ' signin');
+          connection.end();
+          callback(1);
+          });
+        }
+      });
+    }
+    else {
+        connection.query('SELECT * from judge where email = \''+user.email+'\';', function (error, rows, fields) {
+        if (error){
+          console.log(error);
+          callback(0);
+        }
+
+        if (rows.length != 0){
+          connection.query('UPDATE participant SET magiclink= \''+user.magiclink+'\' WHERE email=\''+user.email+'\';', function (error, results, fields) {
+            if (error){
+              console.log(error);
+              callback(0);
+            }
+            console.log(user.email + ' Login');
+            connection.end();
+            callback(1);
+          });
+        }
+        else{
+          callback(-1);         
+        }
+      });
+    }
+});
+
+app.post('/post_register', function (req, res){
+	var emails = req.query.email;
+	var parsed_emails = emails.split(", ")
+	//TODO CONDITIONAL IF THE DATA IS ALREADY EXIST (UPDATE)
+	for(var i = 0; i < parsed_emails.length ; i++){
+		connection.query('INSERT INTO pp (email,title) values (\''+parsed_emails[i]+'\', \''+req.query.title+'\');', function (error, results, fields) {
+          	if(error){
+            	console.log(error);
+          	}
+          	connection.end();
+          //callback(1);
+          	});
+	}
+	connection.query('INSERT INTO project (title,description,video,repo,demo,creativity,impact,viability) values (\''+req.query.title+'\', \''+req.query.description+'\', \''+req.query.video+'\', \''+req.query.repo+'\', \''+req.query.demo+'\', \'0\',\'0\',\'0\');', function (error, results, fields) {
+          if(error){
+            console.log(error);
+          }
+          connection.end();
+          //callback(1);
+          });
+});
+
+app.get('/get_register', function(req, res, next){
+	var title_get = req.query.title;
+
+	//fetch from mysql
+	var datalist = [];
+	var connection = lp.mysql_login(mysql);
+	var callback = function(){
+		res.send(JSON.stringify(datalist));
+		res.end();
+		return;		
+	}
+	//TODO PUTTING EMAILS INTO THE FORM BY GRABBING FROM PP TABLE
+	//should be for HOME
+	// connection.query('SELECT * from pp where email = \''+ email_get +'\' AND title = \''+ title_get +'\';', function (error, rows, fields) {
+	// 	if(error){
+	// 		err[0] = '/message.html?err='+ 'mysql_fail_on_grading';
+	// 		res.send(JSON.stringify(err));
+	// 		res.end();
+	// 		return;
+	// 	}	
+
+	for(var i = 0; i < rows.length ; i++){
+
+	    	connection.query('SELECT * from project where title = \''+ title_get +'\';', function (error, rows, fields) {
+			    if(error){
+					err[0] = '/message.html?err='+ 'mysql_fail_on_taking_registration';
+					res.send(JSON.stringify(err));
+					res.end();
+					return;
+				}
+				
+	    		datalist[datalist.length] = rows[0].title;
+	    		datalist[datalist.length] = rows[0].description;
+	    		datalist[datalist.length] = rows[0].video;
+	    		datalist[datalist.length] = rows[0].repo;
+	    		datalist[datalist.length] = rows[0].demo;
+
+	    		if(datalist.length == rows.length  * 5){
+	    			callback();
+	    		}
+	    		});
+	    }
+
+	}); 
+});
+
+app.get('/get_gradelist', function(req, res, next){
+	var email_get = req.query.email;
+	var email_cookie = "hierifer@hotmail.com";
+    var err = [];
+	// check cookie is correct set
+	if(email_cookie == ""){
+		err[0] = '/index.html?err=not_login';
+		res.send(JSON.stringify(err));
+		res.end();
+		return;
+	}
+
     
-})
+	// check the consistent of get and cookie
+	if(email_cookie != email_get){
+		err[0] = '/message.html?err=bad_url --'+email_get;
+		res.send(JSON.stringify(err));
+		res.end();
+		return;
+	}
+
+	//fetch from mysql
+	var datalist = [];
+	var connection = lp.mysql_login(mysql);
+	var callback = function(){
+		res.send(JSON.stringify(datalist));
+		res.end();
+		return;		
+	}
+
+	connection.query('SELECT title from grading where email = \''+ email_get +'\' AND status = \'v\';', function (error, rows, fields) {
+		if(error){
+			err[0] = '/message.html?err='+ 'mysql_fail_on_grading';
+			res.send(JSON.stringify(err));
+			res.end();
+			return;
+		}	
+
+	    for(var i = 0; i < rows.length ; i++){
+
+	    	connection.query('SELECT * from project where title = \''+ rows[i].title +'\';', function (error, rows2, fields) {
+			    if(error){
+					err[0] = '/message.html?err='+ 'mysql_fail_on_grading';
+					res.send(JSON.stringify(err));
+					res.end();
+					return;
+				}
+				
+	    		datalist[datalist.length] = rows2[0].title;
+	    		datalist[datalist.length] = rows2[0].description;
+	    		datalist[datalist.length] = rows2[0].video;
+	    		datalist[datalist.length] = rows2[0].repo;
+	    		datalist[datalist.length] = rows2[0].demo;
+
+	    		if(datalist.length == rows.length  * 5){
+	    			callback();
+	    		}
+	    		
+	    	});
+	    }
+
+	}); 
+});
+
+
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  res.write("404: NOT FOUND THIS PAGE");
+  res.write("404: NOT FOUND");
   res.end();
   var err = new Error('Not Found');
   err.status = 404;
@@ -185,4 +340,4 @@ var server = app.listen(8081, function () {
 
   console.log("Example app listening at http://%s:%s", host, port)
 
-})
+});

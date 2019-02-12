@@ -3,7 +3,7 @@
   "author": "CS490",
   "license": "ISC",
   "version": "1.0.0",
-  "keyword": "Tenx Hackday",
+  "keyword" : "Tenx Hackday",
   "description": "",
   "main": "server.js",
   "dependencies": {
@@ -11,7 +11,8 @@
     "react": "^15.3.2",
     "react-dom": "^15.3.2",
     "mysql": "^2.11.1",
-    "nodemailer": "^2.6.4"
+    "nodemailer": "^2.6.4",
+    "cookie-parser": "^1.4.3"
   },
   "devDependencies": {
     "css-loader": "^0.25.0",
